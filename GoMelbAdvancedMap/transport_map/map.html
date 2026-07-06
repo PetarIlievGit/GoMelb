@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Transport Analytics</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #0b0e14;
+            color: #d7dce3;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        svg {
+            display: block;
+        }
+
+        .topbar {
+            background: #11151c;
+            border-bottom: 1px solid #232934;
+            padding: 11px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .topbar .mark {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            background: #1b2330;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5b8def;
+        }
+
+        .topbar h1 {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #eef1f5;
+            letter-spacing: -0.1px;
+        }
+
+        .badge {
+            font-size: 0.62rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            background: #161d2a;
+            color: #5b8def;
+            border: 1px solid #233047;
+        }
+
+        .btn-clear {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #232934;
+            background: #151a22;
+            color: #8b94a3;
+            transition: all .15s;
+        }
+
+        .btn-clear:hover {
+            background: #1a2029;
+            color: #d7dce3;
+            border-color: #2c3340;
+        }
+
+        .ctrl-row {
+            background: #0e1219;
+            border-bottom: 1px solid #232934;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        .ctrl-label {
+            font-size: 0.66rem;
+            font-weight: 700;
+            color: #4a5160;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-right: 4px;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid #232934;
+            background: #151a22;
+            color: #8b94a3;
+            transition: all .15s;
+        }
+
+        .toggle:hover {
+            border-color: #2c3340;
+            color: #d7dce3;
+        }
+
+        .toggle svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .toggle.on {
+            background: #16202e;
+            border-color: var(--c);
+            color: var(--c);
+        }
+
+        .t-stops {
+            --c: #5fb87c;
+        }
+
+        .t-routes {
+            --c: #8a7cf0;
+        }
+
+        .t-bus {
+            --c: #e0944c;
+        }
+
+        .t-train {
+            --c: #e0626a;
+        }
+
+        .t-tram {
+            --c: #4cb8c4;
+        }
+
+        .main {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+
+        #map {
+            flex: 1;
+            position: relative;
+            background: #0b0e14;
+        }
+
+        /* Left panel */
+        #leftpanel {
+            width: 280px;
+            flex-shrink: 0;
+            background: #0e1219;
+            border-right: 1px solid #232934;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .lp-header {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid #232934;
+            flex-shrink: 0;
+        }
+
+        .lp-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            margin-bottom: 9px;
+        }
+
+        .lp-search-wrap {
+            position: relative;
+        }
+
+        .lp-search-wrap svg {
+            position: absolute;
+            left: 9px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 14px;
+            height: 14px;
+            color: #4a5160;
+            pointer-events: none;
+        }
+
+        .lp-search {
+            width: 100%;
+            background: #151a22;
+            border: 1px solid #232934;
+            border-radius: 6px;
+            color: #d7dce3;
+            padding: 7px 10px 7px 30px;
+            font-size: 0.78rem;
+            outline: none;
+        }
+
+        .lp-search:focus {
+            border-color: #3a5fc7;
+        }
+
+        .lp-search::placeholder {
+            color: #4a5160;
+        }
+
+        .lp-summary {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .lp-pill {
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .lp-pill .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .lp-pill-red {
+            background: #1f1417;
+            color: #e0626a;
+        }
+
+        .lp-pill-red .dot {
+            background: #e0626a;
+        }
+
+        .lp-pill-yellow {
+            background: #1d1a12;
+            color: #d6a548;
+        }
+
+        .lp-pill-yellow .dot {
+            background: #d6a548;
+        }
+
+        .lp-pill-green {
+            background: #131e17;
+            color: #5fb87c;
+        }
+
+        .lp-pill-green .dot {
+            background: #5fb87c;
+        }
+
+        .lp-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .lp-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid #161b24;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background .12s;
+        }
+
+        .lp-item:hover {
+            background: #131720;
+        }
+
+        /* stronger, more visible "selected" highlight */
+        .lp-item.active {
+            background: linear-gradient(90deg, rgba(91,141,239,0.18), rgba(91,141,239,0.04));
+            box-shadow: inset 3px 0 0 #5b8def;
+        }
+
+        .lp-item.active .lp-name {
+            color: #eef1f5;
+        }
+
+        .lp-item.active .lp-dot {
+            box-shadow: 0 0 0 3px rgba(91,141,239,0.25);
+        }
+
+        .lp-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .lp-info {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .lp-name {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #d7dce3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .lp-sub {
+            font-size: 0.68rem;
+            color: #5b6270;
+            margin-top: 2px;
+        }
+
+        .lp-empty {
+            padding: 24px 16px;
+            font-size: 0.74rem;
+            color: #4a5160;
+            text-align: center;
+        }
+
+        /* Right side panel */
+        #sidepanel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100%;
+            background: rgba(14, 18, 25, 0.97);
+            border-left: 1px solid #232934;
+            z-index: 998;
+            display: none;
+            flex-direction: column;
+            backdrop-filter: blur(10px);
+            overflow-y: auto;
+        }
+
+        #sidepanel.open {
+            display: flex;
+        }
+
+        .sp-header {
+            padding: 16px 18px;
+            border-bottom: 1px solid #232934;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sp-title-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            min-width: 0;
+        }
+
+        .sp-icon-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .sp-icon-badge svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .sp-title {
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #eef1f5;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sp-close {
+            background: none;
+            border: none;
+            color: #5b6270;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .sp-close:hover {
+            color: #d7dce3;
+            background: #1a2029;
+        }
+
+        .sp-close svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        .sp-body {
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sp-section-title {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            color: #4a5160;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .sp-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sp-label {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            color: #4a5160;
+            font-weight: 700;
+        }
+
+        .sp-value {
+            font-size: 0.82rem;
+            color: #d7dce3;
+        }
+
+        .sp-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 5px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            margin-top: 2px;
+            width: fit-content;
+        }
+
+        .sp-red {
+            background: #1f1417;
+            color: #e0626a;
+            border: 1px solid #3a232a;
+        }
+
+        .sp-yellow {
+            background: #1d1a12;
+            color: #d6a548;
+            border: 1px solid #3a3320;
+        }
+
+        .sp-green {
+            background: #131e17;
+            color: #5fb87c;
+            border: 1px solid #213a29;
+        }
+
+        .sp-divider {
+            border: none;
+            border-top: 1px solid #232934;
+            margin: 2px 0;
+        }
+
+        .sp-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 0;
+            border-bottom: 1px solid #1a1f29;
+        }
+
+        .sp-stat:last-child {
+            border-bottom: none;
+        }
+
+        .sp-stat-label {
+            font-size: 0.74rem;
+            color: #6b7280;
+        }
+
+        .sp-stat-val {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #eef1f5;
+        }
+
+        .sp-bar-row {
+            padding: 6px 0;
+        }
+
+        .sp-bar-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 5px;
+        }
+
+        .sp-bar-top .sp-stat-label {
+            font-size: 0.72rem;
+        }
+
+        .sp-bar-top .sp-stat-val {
+            font-size: 0.78rem;
+        }
+
+        .sp-bar-track {
+            height: 6px;
+            border-radius: 3px;
+            background: #1a1f29;
+            overflow: hidden;
+        }
+
+        .sp-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width .3s;
+        }
+
+        .sp-grid2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .sp-tile {
+            background: #131720;
+            border: 1px solid #1e242f;
+            border-radius: 7px;
+            padding: 9px 10px;
+        }
+
+        .sp-tile .sp-label {
+            margin-bottom: 4px;
+        }
+
+        .sp-tile .sp-stat-val {
+            font-size: 0.9rem;
+        }
+
+        .sp-nearby-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.74rem;
+            color: #9aa2b1;
+            padding: 5px 0;
+            border-bottom: 1px solid #161b24;
+        }
+
+        .sp-nearby-item:last-child {
+            border-bottom: none;
+        }
+
+        .statusbar {
+            background: #11151c;
+            border-top: 1px solid #232934;
+            padding: 5px 18px;
+            font-size: 0.7rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .sdot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #3a4150;
+            flex-shrink: 0;
+        }
+
+        .sdot.active {
+            background: #5fb87c;
+        }
+
+        .sdot.loading {
+            background: #d6a548;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1
+            }
+            50% {
+                opacity: .3
+            }
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 26px;
+            left: 12px;
+            z-index: 997;
+            background: rgba(14, 18, 25, 0.95);
+            border: 1px solid #232934;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 0.72rem;
+            color: #8b94a3;
+            backdrop-filter: blur(8px);
+            min-width: 200px;
+        }
+
+        .legend h4 {
+            font-size: 0.64rem;
+            color: #6b7280;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            font-weight: 700;
+        }
+
+        .lr {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .lr:last-child {
+            margin-bottom: 0;
+        }
+
+        .ld {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .ll {
+            width: 16px;
+            height: 3px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .legend-divider {
+            border: none;
+            border-top: 1px solid #232934;
+            margin: 9px 0;
+        }
+
+        .lr svg {
+            width: 13px;
+            height: 13px;
+            flex-shrink: 0;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 999;
+            background: rgba(14, 18, 25, 0.97);
+            border: 1px solid #232934;
+            border-radius: 10px;
+            padding: 26px 30px;
+            max-width: 380px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #overlay h2 {
+            font-size: 0.95rem;
+            color: #eef1f5;
+            font-weight: 700;
+        }
+
+        #overlay p {
+            font-size: 0.78rem;
+            color: #8b94a3;
+            line-height: 1.6;
+        }
+
+        .veh-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .veh-marker svg {
+            width: 12px;
+            height: 12px;
+            color: #0b0e14;
+        }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1>Transport Analytics</h1>
+    <span class="badge">DATACUBE</span>
+    <button class="btn-clear" onclick="clearAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+        Clear all
+    </button>
+</div>
+
+<div class="ctrl-row">
+    <span class="ctrl-label">Layers</span>
+    <button class="toggle t-stops" id="btn-stops" onclick="toggleStops()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/>
+            <circle cx="12" cy="10" r="2.5"/>
+        </svg>
+        Stops
+    </button>
+    <button class="toggle t-routes" id="btn-routes" onclick="toggleRoutes()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19c4-1 4-13 8-13s4 12 8 13"/>
+        </svg>
+        Routes
+    </button>
+    <button class="toggle t-bus" id="btn-buses" onclick="toggleVehicles('bus')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="5" width="18" height="12" rx="2"/>
+            <circle cx="7.5" cy="19.5" r="1.5" fill="currentColor"/>
+            <circle cx="16.5" cy="19.5" r="1.5" fill="currentColor"/>
+            <path d="M3 11h18"/>
+        </svg>
+        Buses
+    </button>
+    <button class="toggle t-train" id="btn-trains" onclick="toggleVehicles('train')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="5" y="3" width="14" height="14" rx="3"/>
+            <path d="M5 11h14"/>
+            <circle cx="8.5" cy="20" r="1.2" fill="currentColor"/>
+            <circle cx="15.5" cy="20" r="1.2" fill="currentColor"/>
+            <path d="M8 17l-2 3M16 17l2 3"/>
+        </svg>
+        Trains
+    </button>
+    <button class="toggle t-tram" id="btn-trams" onclick="toggleVehicles('tram')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="4" y="6" width="16" height="11" rx="2"/>
+            <path d="M4 11h16M9 3l2 3M15 3l-2 3"/>
+            <circle cx="8" cy="20" r="1.2" fill="currentColor"/>
+            <circle cx="16" cy="20" r="1.2" fill="currentColor"/>
+        </svg>
+        Trams
+    </button>
+</div>
+
+<div class="main">
+
+    <div id="leftpanel">
+        <div class="lp-header">
+            <div class="lp-title">Routes</div>
+            <div class="lp-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7"/>
+                    <path d="M21 21l-4.3-4.3"/>
+                </svg>
+                <input id="lp-search" class="lp-search" type="text" placeholder="Search routes…"
+                       oninput="renderRouteList()"/>
+            </div>
+            <div class="lp-summary" id="lp-summary"></div>
+        </div>
+        <div class="lp-list" id="lp-list">
+            <div class="lp-empty">Loading routes…</div>
+        </div>
+    </div>
+
+    <div id="map">
+        <div id="overlay">
+            <h2>Loading</h2>
+            <p>Connecting to database via <strong style="color:#5b8def">api.py</strong></p>
+        </div>
+
+        <div id="sidepanel">
+            <div class="sp-header">
+                <div class="sp-title-row">
+                    <div class="sp-icon-badge" id="sp-icon-badge"></div>
+                    <span class="sp-title" id="sp-title">Details</span>
+                </div>
+                <button class="sp-close" onclick="deselectRoute()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="sp-body" id="sp-body"></div>
+        </div>
+
+        <div class="legend">
+            <h4>Stop status</h4>
+            <div class="lr">
+                <div class="ld" style="background:#e0626a"></div>
+                New route needed
+            </div>
+            <div class="lr">
+                <div class="ld" style="background:#d6a548"></div>
+                Higher frequency
+            </div>
+            <div class="lr">
+                <div class="ld" style="background:#5fb87c"></div>
+                No action needed
+            </div>
+            <hr class="legend-divider"/>
+            <h4>Route status</h4>
+            <div class="lr">
+                <div class="ll" style="background:#e0626a"></div>
+                Critical
+            </div>
+            <div class="lr">
+                <div class="ll" style="background:#d6a548"></div>
+                Moderate
+            </div>
+            <div class="lr">
+                <div class="ll" style="background:#5fb87c"></div>
+                OK
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="statusbar">
+    <div class="sdot" id="sdot"></div>
+    <span id="stext">Initialising…</span>
+</div>
+
+<script>
+    const ICON = {
+        pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+        route: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19c4-1 4-13 8-13s4 12 8 13"/></svg>',
+        bus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="5" width="18" height="12" rx="2"/><circle cx="7.5" cy="19.5" r="1.5" fill="currentColor"/><circle cx="16.5" cy="19.5" r="1.5" fill="currentColor"/><path d="M3 11h18"/></svg>',
+        train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14"/><circle cx="8.5" cy="20" r="1.2" fill="currentColor"/><circle cx="15.5" cy="20" r="1.2" fill="currentColor"/><path d="M8 17l-2 3M16 17l2 3"/></svg>',
+        tram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="6" width="16" height="11" rx="2"/><path d="M4 11h16M9 3l2 3M15 3l-2 3"/><circle cx="8" cy="20" r="1.2" fill="currentColor"/><circle cx="16" cy="20" r="1.2" fill="currentColor"/></svg>'
+    };
+
+    const map = L.map('map', {zoomControl: true}).setView([-37.8136, 144.9631], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO', maxZoom: 19, subdomains: 'abcd'
+    }).addTo(map);
+
+    const stopsLayer = L.layerGroup();
+    const routesLayer = L.layerGroup();
+    const busLayerG = L.layerGroup();
+    const trainLayerG = L.layerGroup();
+    const tramLayerG = L.layerGroup();
+
+    let stopsOn = false;
+    let routesOn = false;
+    const vehicleState = {bus: false, train: false, tram: false};
+
+    let allRoutes = [];
+    const routePolylines = {};
+    let activeShapeId = null;
+    let preSelectLayers = null; 
+
+    const vehicleMarkers = {bus: [], train: [], tram: []};
+    const vehiclePositions = {bus: [], train: [], tram: []};
+    const vehicleIntervals = {bus: null, train: null, tram: null};
+    const vehicleLayers = {bus: busLayerG, train: trainLayerG, tram: tramLayerG};
+
+    const VEHICLE_CFG = {
+        bus: {label: 'Bus', segDuration: 3500, color: '#e0944c', btnId: 'btn-buses', avgSpeedKmh: 28},
+        train: {label: 'Train', segDuration: 1800, color: '#e0626a', btnId: 'btn-trains', avgSpeedKmh: 55},
+        tram: {label: 'Tram', segDuration: 2500, color: '#4cb8c4', btnId: 'btn-trams', avgSpeedKmh: 22}
+    };
+
+    function setStatus(msg, state) {
+        document.getElementById('stext').textContent = msg;
+        const d = document.getElementById('sdot');
+        d.className = 'sdot' + (state === 'active' ? ' active' : state === 'loading' ? ' loading' : '');
+    }
+
+    function stopColor(status) {
+        if (status === 'NEW ROUTE NEEDED') return '#e0626a';
+        if (status === 'HIGHER FREQUENCY NEEDED') return '#d6a548';
+        return '#5fb87c';
+    }
+
+    function routeColor(rec) {
+        if (!rec) return '#5fb87c';
+        if (rec.includes('URGENT') || rec.includes('revision')) return '#e0626a';
+        if (rec.includes('frequency') || rec.includes('Increase') || rec.includes('Reschedule')) return '#d6a548';
+        return '#5fb87c';
+    }
+
+    function badgeSp(color) {
+        if (color === '#e0626a') return 'sp-badge sp-red';
+        if (color === '#d6a548') return 'sp-badge sp-yellow';
+        return 'sp-badge sp-green';
+    }
+
+    function severityRank(color) {
+        if (color === '#e0626a') return 0;
+        if (color === '#d6a548') return 1;
+        return 2;
+    }
+
+    function statBar(label, value, unit, max, color) {
+        const pct = Math.max(2, Math.min(100, Math.round(value / max * 100)));
+        return `
+        <div class="sp-bar-row">
+            <div class="sp-bar-top">
+                <span class="sp-stat-label">${label}</span>
+                <span class="sp-stat-val" style="color:${color}">${value}${unit}</span>
+            </div>
+            <div class="sp-bar-track"><div class="sp-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        </div>
+    `;
+    }
+
+    function haversineKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function routeDistanceKm(points) {
+        let d = 0;
+        for (let i = 1; i < points.length; i++) {
+            d += haversineKm(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1]);
+        }
+        return d;
+    }
+
+    function nearbyRoutes(lat, lon, maxKm, limit) {
+        const found = [];
+        allRoutes.forEach(r => {
+            if (!r.points || r.points.length === 0) return;
+            let best = Infinity;
+            for (let i = 0; i < r.points.length; i += 3) {
+                const d = haversineKm(lat, lon, r.points[i][0], r.points[i][1]);
+                if (d < best) best = d;
+                if (best < 0.02) break;
+            }
+            if (best <= maxKm) found.push({name: r.route_name || ('Route ' + r.shape_id), dist: best});
+        });
+        return found.sort((a, b) => a.dist - b.dist).slice(0, limit);
+    }
+
+    function openPanel(title, html, iconSvg, iconColor) {
+        document.getElementById('sp-title').textContent = title;
+        document.getElementById('sp-body').innerHTML = html;
+        const badge = document.getElementById('sp-icon-badge');
+        badge.innerHTML = iconSvg || '';
+        badge.style.background = (iconColor || '#3a5fc7') + '22';
+        badge.style.color = iconColor || '#5b8def';
+        document.getElementById('sidepanel').classList.add('open');
+    }
+
+    function closePanel() {
+        document.getElementById('sidepanel').classList.remove('open');
+    }
+
+    function routePanelHtml(r) {
+        const col = routeColor(r.recommendation);
+        const occ = r.avg_occupancy;
+        const del = r.avg_delay;
+        const occColor = occ > 70 ? '#e0626a' : occ > 40 ? '#d6a548' : '#5fb87c';
+        const delColor = del > 10 ? '#e0626a' : del > 5 ? '#d6a548' : '#5fb87c';
+        const distKm = routeDistanceKm(r.points || []);
+        const assumedSpeed = 27; 
+        const tripMin = distKm > 0 ? Math.round(distKm / assumedSpeed * 60) : 0;
+        return `
+        <div class="sp-row">
+            <span class="sp-label">Route name</span>
+            <span class="sp-value">${r.route_name || r.shape_id}</span>
+        </div>
+        <div class="sp-row">
+            <span class="sp-label">Shape ID</span>
+            <span class="sp-value">${r.shape_id}</span>
+        </div>
+        <hr class="sp-divider"/>
+        <div class="sp-grid2">
+            <div class="sp-tile">
+                <div class="sp-label">Distance</div>
+                <div class="sp-stat-val">${distKm.toFixed(1)} km</div>
+            </div>
+            <div class="sp-tile">
+                <div class="sp-label">Est. trip time</div>
+                <div class="sp-stat-val">${tripMin} min</div>
+            </div>
+        </div>
+        <hr class="sp-divider"/>
+        ${statBar('Avg. occupancy', occ, '%', 100, occColor)}
+        ${statBar('Avg. delay', del, ' min', 25, delColor)}
+        <hr class="sp-divider"/>
+        <div class="sp-row">
+            <span class="sp-label">Recommendation</span>
+            <span class="${badgeSp(col)}">${r.recommendation}</span>
+        </div>
+    `;
+    }
+
+    function vehiclePanelHtml(type, route, posObj) {
+        const cfg = VEHICLE_CFG[type];
+        const col = routeColor(route.recommendation);
+        const occ = route.avg_occupancy;
+        const del = route.avg_delay;
+        const occColor = occ > 70 ? '#e0626a' : occ > 40 ? '#d6a548' : '#5fb87c';
+        const delColor = del > 10 ? '#e0626a' : del > 5 ? '#d6a548' : '#5fb87c';
+        const progressPct = Math.round(posObj.idx / route.points.length * 100);
+        const etaSec = Math.max(0, Math.round(posObj.segDuration * (1 - posObj.t) / 1000));
+        const speedVariance = Math.round(cfg.avgSpeedKmh * (0.85 + Math.random() * 0.3));
+        return `
+        <div class="sp-row">
+            <span class="sp-label">Vehicle type</span>
+            <span class="sp-value">${cfg.label}</span>
+        </div>
+        <div class="sp-row">
+            <span class="sp-label">Route</span>
+            <span class="sp-value">${route.route_name || route.shape_id}</span>
+        </div>
+        <span class="${badgeSp('#5fb87c')}">In service</span>
+        <hr class="sp-divider"/>
+        <div class="sp-grid2">
+            <div class="sp-tile">
+                <div class="sp-label">Current speed</div>
+                <div class="sp-stat-val">${speedVariance} km/h</div>
+            </div>
+            <div class="sp-tile">
+                <div class="sp-label">Next stop ETA</div>
+                <div class="sp-stat-val">${etaSec}s</div>
+            </div>
+        </div>
+        <div class="sp-bar-row">
+            <div class="sp-bar-top">
+                <span class="sp-stat-label">Progress on route</span>
+                <span class="sp-stat-val">${progressPct}%</span>
+            </div>
+            <div class="sp-bar-track"><div class="sp-bar-fill" style="width:${Math.max(2,progressPct)}%;background:#5b8def"></div></div>
+        </div>
+        <hr class="sp-divider"/>
+        ${statBar('Avg. occupancy', occ, '%', 100, occColor)}
+        ${statBar('Avg. delay', del, ' min', 25, delColor)}
+        <hr class="sp-divider"/>
+        <div class="sp-row">
+            <span class="sp-label">Recommendation</span>
+            <span class="${badgeSp(col)}">${route.recommendation}</span>
+        </div>
+    `;
+    }
+
+    function stopPanelHtml(s, col) {
+        const near = nearbyRoutes(s.lat, s.lon, 0.35, 4);
+        const nearHtml = near.length
+            ? near.map(n => `<div class="sp-nearby-item"><span>${n.name}</span><span>${(n.dist * 1000).toFixed(0)} m</span></div>`).join('')
+            : `<div class="sp-nearby-item"><span>No routes within 350 m</span></div>`;
+        return `
+        <div class="sp-row">
+            <span class="sp-label">Stop ID</span>
+            <span class="sp-value">${s.stop_id}</span>
+        </div>
+        <div class="sp-row">
+            <span class="sp-label">Name</span>
+            <span class="sp-value">${s.stop_name || '—'}</span>
+        </div>
+        <hr class="sp-divider"/>
+        <div class="sp-grid2">
+            <div class="sp-tile">
+                <div class="sp-label">Latitude</div>
+                <div class="sp-stat-val">${s.lat.toFixed(5)}</div>
+            </div>
+            <div class="sp-tile">
+                <div class="sp-label">Longitude</div>
+                <div class="sp-stat-val">${s.lon.toFixed(5)}</div>
+            </div>
+        </div>
+        <hr class="sp-divider"/>
+        <div class="sp-row">
+            <span class="sp-label">Status</span>
+            <span class="${badgeSp(col)}">${s.status}</span>
+        </div>
+        <hr class="sp-divider"/>
+        <div class="sp-section-title">Nearby routes</div>
+        ${nearHtml}
+    `;
+    }
+
+    function renderRouteList() {
+        const q = document.getElementById('lp-search').value.trim().toLowerCase();
+        const list = document.getElementById('lp-list');
+
+        let filtered = allRoutes.filter(r => r.points && r.points.length > 1);
+        if (q) filtered = filtered.filter(r => (r.route_name || '').toLowerCase().includes(q));
+
+        filtered = filtered.slice().sort((a, b) => {
+            const sa = severityRank(routeColor(a.recommendation));
+            const sb = severityRank(routeColor(b.recommendation));
+            if (sa !== sb) return sa - sb;
+            return (a.route_name || '').localeCompare(b.route_name || '');
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = `<div class="lp-empty">No routes match "${q}"</div>`;
+            return;
+        }
+
+        list.innerHTML = filtered.map((r, i) => {
+            const col = routeColor(r.recommendation);
+            const active = r.shape_id === activeShapeId ? ' active' : '';
+            return `
+            <div class="lp-item${active}" data-shape="${r.shape_id}">
+                <div class="lp-dot" style="background:${col}"></div>
+                <div class="lp-info">
+                    <div class="lp-name">${r.route_name || r.shape_id}</div>
+                    <div class="lp-sub">${r.avg_occupancy}% occupancy · ${r.avg_delay} min delay</div>
+                </div>
+            </div>
+        `;
+        }).join('');
+
+        list.querySelectorAll('.lp-item').forEach(el => {
+            el.addEventListener('click', () => focusRoute(el.getAttribute('data-shape')));
+        });
+    }
+
+    function renderSummaryPills() {
+        let red = 0, yellow = 0, green = 0;
+        allRoutes.forEach(r => {
+            const col = routeColor(r.recommendation);
+            if (col === '#e0626a') red++;
+            else if (col === '#d6a548') yellow++;
+            else green++;
+        });
+        document.getElementById('lp-summary').innerHTML = `
+        <span class="lp-pill lp-pill-red"><span class="dot"></span>${red}</span>
+        <span class="lp-pill lp-pill-yellow"><span class="dot"></span>${yellow}</span>
+        <span class="lp-pill lp-pill-green"><span class="dot"></span>${green}</span>
+    `;
+    }
+
+    function resetRouteHighlight() {
+        Object.entries(routePolylines).forEach(([sid, poly]) => {
+            const rt = allRoutes.find(r => String(r.shape_id) === String(sid));
+            const col = routeColor(rt ? rt.recommendation : null);
+            poly.setStyle({weight: 3, opacity: 0.8, color: col});
+        });
+    }
+
+    function deselectRoute() {
+        if (activeShapeId === null) return;
+        activeShapeId = null;
+        renderRouteList();
+        closePanel();
+        resetRouteHighlight();
+        restoreOtherLayers();
+    }
+
+    function restoreOtherLayers() {
+        if (!preSelectLayers) return;
+
+        if (preSelectLayers.stopsOn && !stopsOn) {
+            stopsLayer.addTo(map);
+            document.getElementById('btn-stops').classList.add('on');
+            stopsOn = true;
+        }
+
+        ['bus', 'train', 'tram'].forEach(t => {
+            if (preSelectLayers.vehicleState[t] && !vehicleState[t]) {
+                vehicleLayers[t].addTo(map);
+                startVehicleAnimation(t);
+                document.getElementById(VEHICLE_CFG[t].btnId).classList.add('on');
+                vehicleState[t] = true;
+            }
+        });
+
+        preSelectLayers = null;
+    }
+
+    function focusRoute(shapeId) {
+        if (activeShapeId !== null && String(activeShapeId) === String(shapeId)) {
+            deselectRoute();
+            return;
+        }
+
+        const r = allRoutes.find(rt => String(rt.shape_id) === String(shapeId));
+        if (!r) return;
+
+        preSelectLayers = {
+            stopsOn: stopsOn,
+            vehicleState: {...vehicleState}
+        };
+
+        activeShapeId = r.shape_id;
+        renderRouteList();
+
+        if (!routesOn) toggleRoutes();
+
+        if (stopsOn) {
+            map.removeLayer(stopsLayer);
+            document.getElementById('btn-stops').classList.remove('on');
+            stopsOn = false;
+        }
+
+        ['bus', 'train', 'tram'].forEach(t => {
+            if (vehicleState[t]) {
+                map.removeLayer(vehicleLayers[t]);
+                stopVehicleAnimation(t);
+                document.getElementById(VEHICLE_CFG[t].btnId).classList.remove('on');
+                vehicleState[t] = false;
+            }
+        });
+
+        Object.entries(routePolylines).forEach(([sid, poly]) => {
+            if (String(sid) === String(r.shape_id)) {
+                poly.setStyle({weight: 6, opacity: 1});
+                poly.bringToFront();
+            } else {
+                poly.setStyle({opacity: 0});
+            }
+        });
+
+        const poly = routePolylines[r.shape_id];
+        if (poly) {
+            map.fitBounds(poly.getBounds(), {padding: [50, 50], maxZoom: 16});
+        }
+        openPanel(r.route_name || ('Route ' + r.shape_id), routePanelHtml(r), ICON.route, routeColor(r.recommendation));
+    }
+
+    function pickRandomRoutes(n) {
+        const eligible = allRoutes.filter(r => r.points.length > 8);
+        return eligible
+            .map(r => ({r, sort: Math.random()}))
+            .sort((a, b) => a.sort - b.sort)
+            .slice(0, n)
+            .map(x => x.r);
+    }
+
+    function startVehicleAnimation(type) {
+        const cfg = VEHICLE_CFG[type];
+        const layer = vehicleLayers[type];
+        layer.clearLayers();
+        vehicleMarkers[type] = [];
+        vehiclePositions[type] = [];
+
+        const icon = L.divIcon({
+            html: `<div class="veh-marker" style="width:24px;height:24px;background:${cfg.color}">${ICON[type]}</div>`,
+            className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+        });
+
+        const routes = pickRandomRoutes(30);
+
+        routes.forEach(r => {
+            const startIdx = Math.floor(Math.random() * r.points.length);
+            const posObj = {
+                points: r.points,
+                idx: startIdx,
+                nextIdx: (startIdx + 1) % r.points.length,
+                t: 0,
+                segDuration: cfg.segDuration + Math.random() * 800,
+                route: r
+            };
+            vehiclePositions[type].push(posObj);
+
+            const marker = L.marker(r.points[startIdx], {icon})
+                .on('click', () => {
+                    openPanel(`${cfg.label} — ${r.route_name || r.shape_id}`, vehiclePanelHtml(type, r, posObj), ICON[type], cfg.color);
+                });
+            marker.addTo(layer);
+            vehicleMarkers[type].push(marker);
+        });
+
+        let lastTs = null;
+
+        function frame(ts) {
+            if (!vehicleState[type]) return;
+            if (lastTs === null) lastTs = ts;
+            const dt = ts - lastTs;
+            lastTs = ts;
+
+            vehiclePositions[type].forEach((b, i) => {
+                b.t += dt / b.segDuration;
+                if (b.t >= 1) {
+                    b.t = 0;
+                    b.idx = b.nextIdx;
+                    b.nextIdx = (b.idx + 1) % b.points.length;
+                }
+                const [lat1, lon1] = b.points[b.idx];
+                const [lat2, lon2] = b.points[b.nextIdx];
+                vehicleMarkers[type][i].setLatLng([
+                    lat1 + (lat2 - lat1) * b.t,
+                    lon1 + (lon2 - lon1) * b.t
+                ]);
+            });
+
+            vehicleIntervals[type] = requestAnimationFrame(frame);
+        }
+
+        vehicleIntervals[type] = requestAnimationFrame(frame);
+    }
+
+    function stopVehicleAnimation(type) {
+        if (vehicleIntervals[type]) {
+            cancelAnimationFrame(vehicleIntervals[type]);
+            vehicleIntervals[type] = null;
+        }
+    }
+
+    function toggleVehicles(type) {
+        deselectRoute();
+        const cfg = VEHICLE_CFG[type];
+        const btn = document.getElementById(cfg.btnId);
+        if (vehicleState[type]) {
+            map.removeLayer(vehicleLayers[type]);
+            stopVehicleAnimation(type);
+            btn.classList.remove('on');
+        } else {
+            vehicleLayers[type].addTo(map);
+            startVehicleAnimation(type);
+            btn.classList.add('on');
+        }
+        vehicleState[type] = !vehicleState[type];
+    }
+
+    function toggleStops() {
+        deselectRoute();
+        if (stopsOn) {
+            map.removeLayer(stopsLayer);
+            document.getElementById('btn-stops').classList.remove('on');
+        } else {
+            stopsLayer.addTo(map);
+            document.getElementById('btn-stops').classList.add('on');
+        }
+        stopsOn = !stopsOn;
+    }
+
+    function toggleRoutes() {
+        if (routesOn) {
+            map.removeLayer(routesLayer);
+            document.getElementById('btn-routes').classList.remove('on');
+        } else {
+            routesLayer.addTo(map);
+            document.getElementById('btn-routes').classList.add('on');
+        }
+        routesOn = !routesOn;
+    }
+
+    function clearAll() {
+        map.removeLayer(stopsLayer);
+        map.removeLayer(routesLayer);
+        ['bus', 'train', 'tram'].forEach(t => {
+            map.removeLayer(vehicleLayers[t]);
+            stopVehicleAnimation(t);
+            vehicleState[t] = false;
+            document.getElementById(VEHICLE_CFG[t].btnId).classList.remove('on');
+        });
+        stopsOn = routesOn = false;
+        document.getElementById('btn-stops').classList.remove('on');
+        document.getElementById('btn-routes').classList.remove('on');
+        activeShapeId = null;
+        resetRouteHighlight();
+        renderRouteList();
+        closePanel();
+        setStatus('All layers cleared.', 'idle');
+    }
+
+    async function autoLoad() {
+        setStatus('Loading from database…', 'loading');
+        document.getElementById('overlay').style.display = 'flex';
+
+        try {
+            const [stops, routes] = await Promise.all([
+                fetch('http://localhost:5000/api/stops').then(r => r.json()),
+                fetch('http://localhost:5000/api/routes').then(r => r.json())
+            ]);
+
+            allRoutes = routes;
+
+            stops.forEach(s => {
+                const col = stopColor(s.status);
+                L.circleMarker([s.lat, s.lon], {
+                    radius: 5, fillColor: col, color: '#0b0e14', weight: 1.5, fillOpacity: 0.9
+                })
+                    .on('click', () => openPanel(s.stop_name || 'Unknown stop', stopPanelHtml(s, col), ICON.pin, col))
+                    .addTo(stopsLayer);
+            });
+
+            routes.forEach(r => {
+                if (!r.points || r.points.length < 2) return;
+                const col = routeColor(r.recommendation);
+                const poly = L.polyline(r.points, {color: col, weight: 3, opacity: 0.8})
+                    .on('click', () => {
+                        if (activeShapeId !== null && String(activeShapeId) !== String(r.shape_id)) return;
+                        focusRoute(r.shape_id);
+                    })
+                    .addTo(routesLayer);
+                routePolylines[r.shape_id] = poly;
+            });
+
+            stopsLayer.addTo(map);
+            routesLayer.addTo(map);
+            stopsOn = true;
+            routesOn = true;
+            document.getElementById('btn-stops').classList.add('on');
+            document.getElementById('btn-routes').classList.add('on');
+
+            ['bus', 'train', 'tram'].forEach(t => {
+                vehicleLayers[t].addTo(map);
+                startVehicleAnimation(t);
+                vehicleState[t] = true;
+                document.getElementById(VEHICLE_CFG[t].btnId).classList.add('on');
+            });
+
+            renderSummaryPills();
+            renderRouteList();
+
+            document.getElementById('overlay').style.display = 'none';
+            setStatus('Loaded ' + stops.length + ' stops · ' + routes.length + ' routes — search or click a route to inspect it', 'active');
+
+        } catch (err) {
+            setStatus('Error — is api.py running on port 5000?', 'idle');
+            document.getElementById('overlay').innerHTML = `
+            <h2>Connection error</h2>
+            <p>Make sure <strong style="color:#5b8def">api.py</strong> is running:<br/>
+            <code style="color:#5fb87c">python api.py</code></p>
+        `;
+        }
+    }
+
+    autoLoad();
+</script>
+</body>
+</html>
